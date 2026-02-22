@@ -444,7 +444,7 @@ const modelList: Owned[] = [
   {
     manufacturer: "other",
     model: "gpt-4.1",
-    responseFormat: "schema",
+    responseFormat: "object",
     image: true,
     think: false,
     instance: createOpenAI,
