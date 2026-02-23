@@ -54,48 +54,14 @@ COPY --from=builder /app/scripts/web /usr/share/nginx/html
 # 只安装生产依赖
 RUN yarn install --frozen-lockfile --production
 # 配置 nginx
-RUN cat > /etc/nginx/http.d/default.conf <<'EOF'
-server {
-    listen 80;
-    location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files $uri $uri/ /index.html;
-    }
-}
-EOF
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 
 # 配置 nginx 主配置,日志输出到 stderr/stdout
 RUN sed -i 's|error_log /var/log/nginx/error.log warn;|error_log /dev/stderr warn;|g' /etc/nginx/nginx.conf || true && \
     sed -i 's|access_log /var/log/nginx/access.log main;|access_log /dev/stdout main;|g' /etc/nginx/nginx.conf || true
 
 # 配置 supervisor
-RUN cat > /etc/supervisord.conf <<'EOF'
-[supervisord]
-nodaemon=true
-logfile=/var/log/supervisord.log
-pidfile=/var/run/supervisord.pid
-
-[program:nginx]
-command=nginx -g "daemon off;"
-autostart=true
-autorestart=true
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-
-[program:app]
-command=pm2-runtime start build/app.js --name app
-directory=/app
-autostart=true
-autorestart=true
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-environment=NODE_ENV=prod
-EOF
+COPY docker/supervisord.conf /etc/supervisord.conf
 
 ENV NODE_ENV=prod
 EXPOSE 80
