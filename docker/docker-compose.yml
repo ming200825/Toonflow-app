@@ -19,6 +19,12 @@ services:
     volumes:
       # 可选: 持久化日志
       - ../logs:/var/log
+      # 持久化数据库
+      - ../data/db.sqlite:/app/db.sqlite
+      # 持久化上传的图片
+      - ../data/uploads:/app/uploads
+      # 持久化环境配置
+      - ../env/.env.prod:/app/env/.env.prod
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8011/"]
       interval: 30s
