@@ -23,6 +23,10 @@ services:
       - ../data:/app/data
       # 持久化环境配置
       - ../env:/app/env
+      # 后端编译代码（修改后不用重新 build 镜像）
+      - ../build:/app/build
+      # 前端静态页面
+      - ../scripts/web:/usr/share/nginx/html
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8011/"]
       interval: 30s
