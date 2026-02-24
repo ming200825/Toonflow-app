@@ -1,50 +1,68 @@
 import "../type";
 import axios from "axios";
-import sharp from "sharp";
-import FormData from "form-data";
-import { pollTask, validateVideoConfig } from "@/utils/ai/utils";
-import { createOpenAI } from "@ai-sdk/openai";
+import u from "@/utils";
+import { pollTask } from "@/utils/ai/utils";
 
 export default async (input: VideoConfig, config: AIConfig) => {
   if (!config.apiKey) throw new Error("缺少API Key");
   if (!config.baseURL) throw new Error("缺少baseURL");
-  // const { owned, images, hasTextType } = validateVideoConfig(input, config);
 
-  const [requestUrl, queryUrl] = config.baseURL.split("|");
-
+  const baseURL = config.baseURL.replace(/\/+$/, "");
   const authorization = `Bearer ${config.apiKey}`;
 
-  const formData = new FormData();
-  formData.append("model", config.model);
-  formData.append("prompt", input.prompt);
-  formData.append("seconds", String(input.duration));
-
-  // 根据 aspectRatio 设置 size
-  const sizeMap: Record<string, string> = {
-    "16:9": "1920x1080",
-    "9:16": "1080x1920",
+  // 构建请求体 (new-api /v1/videos 格式)
+  const requestBody: Record<string, any> = {
+    model: config.model,
+    prompt: input.prompt,
+    duration: input.duration,
+    // Gemini Veo 等模型通过 metadata 传递视频参数
+    metadata: {
+      durationSeconds: input.duration,
+      aspectRatio: input.aspectRatio,
+      personGeneration: "allow_all",
+    },
   };
-  formData.append("size", sizeMap[input.aspectRatio] || "1920x1080");
-  if (input.imageBase64 && input.imageBase64.length) {
-    const base64Data = input.imageBase64[0]!.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
-    formData.append("input_reference", buffer, { filename: "image.jpg", contentType: "image/jpeg" });
+
+  // 如果有图片输入
+  if (input.imageBase64 && input.imageBase64.length > 0) {
+    requestBody.image = input.imageBase64[0];
   }
-  const { data } = await axios.post(requestUrl, formData, {
-    headers: { "Content-Type": "application/json", Authorization: authorization, ...formData.getHeaders() },
+
+  // 提交任务 POST /v1/videos
+  const { data } = await axios.post(`${baseURL}/videos`, requestBody, {
+    headers: { "Content-Type": "application/json", Authorization: authorization },
   });
-  if (data.status === "FAILED") throw new Error(`任务提交失败: ${data.errorMessage || "未知错误"}`);
-  const taskId = data.id;
-  return await pollTask(async () => {
-    const { data } = await axios.get(`${queryUrl.replace("{id}", taskId)}`, {
+
+  if (data.status === "failed") {
+    throw new Error(`任务提交失败: ${data.error?.message || "未知错误"}`);
+  }
+
+  const taskId = data.task_id || data.id;
+  if (!taskId) throw new Error("未返回任务ID");
+
+  // 轮询查询状态 GET /v1/videos/{task_id}
+  await pollTask(async () => {
+    const { data } = await axios.get(`${baseURL}/videos/${taskId}`, {
       headers: { Authorization: authorization },
     });
 
-    if (data.status === "SUCCESS") {
-      return data.results?.length ? { completed: true, url: data.results[0].url } : { completed: false, error: "任务成功但未返回视频链接" };
+    if (data.status === "completed") {
+      return { completed: true, url: "completed" };
     }
-    if (data.status === "FAILED") return { completed: false, error: `任务失败: ${data.errorMessage || "未知错误"}` };
-    if (data.status === "QUEUED" || data.status === "RUNNING") return { completed: false };
-    return { completed: false, error: `未知状态: ${data.status}` };
+    if (data.status === "failed") {
+      return { completed: false, error: `任务失败: ${data.error?.message || "未知错误"}` };
+    }
+    // pending / processing 继续轮询
+    return { completed: false };
   });
+
+  // 任务完成后，通过 /v1/videos/{task_id}/content 下载视频（需要带 Authorization）
+  const response = await axios.get(`${baseURL}/videos/${taskId}/content`, {
+    headers: { Authorization: authorization },
+    responseType: "stream",
+  });
+  await u.oss.writeFile(input.savePath, response.data);
+
+  // 返回 null，让 index.ts 跳过重复下载，直接返回 savePath
+  return null;
 };

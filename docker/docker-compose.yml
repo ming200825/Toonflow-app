@@ -1,5 +1,22 @@
 version: '3.4'
 services:
+  # --- 新增的辅助容器 ---
+  navicat-tunnel:
+    image: php:8.2-alpine
+    container_name: navicat-tunnel
+    restart: unless-stopped
+    ports:
+      - "8088:8000"  # 本地 8088 端口映射到容器 8000
+    volumes:
+      # 1. 挂载脚本文件 (假设你把脚本放在了 ../data 目录下)
+      - ../data/ntunnel_sqlite.php:/app/ntunnel_sqlite.php
+      # 2. 挂载 SQLite 数据库文件 (必须和 toonflow 共享同一个 data 目录)
+      - ../data:/app/data
+    working_dir: /app
+    # 使用 PHP 内置服务器启动，最轻量化，不需要安装 Nginx
+    command: php -S 0.0.0.0:8000
+
+  # --- 你原有的服务 ---
   toonflow:
     build:
       context: ..
@@ -17,15 +34,10 @@ services:
     environment:
       - NODE_ENV=prod
     volumes:
-      # 可选: 持久化日志
       - ../logs:/var/log
-      # 持久化数据库和上传的图片
       - ../data:/app/data
-      # 持久化环境配置
       - ../env:/app/env
-      # 后端编译代码（修改后不用重新 build 镜像）
       - ../build:/app/build
-      # 前端静态页面
       - ../scripts/web:/usr/share/nginx/html
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8011/"]

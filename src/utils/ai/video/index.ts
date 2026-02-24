@@ -20,7 +20,7 @@ const modelInstance = {
   gemini: gemini,
   runninghub: runninghub,
   apimart: apimart,
-  // other: other,
+  other: other,
 } as const;
 
 export default async (input: VideoConfig, config?: AIConfig) => {
@@ -28,9 +28,12 @@ export default async (input: VideoConfig, config?: AIConfig) => {
   if (!config || !config?.model || !config?.apiKey) throw new Error("请检查模型配置是否正确");
 
   const manufacturerFn = modelInstance[manufacturer as keyof typeof modelInstance];
-  if (!manufacturerFn) if (!manufacturerFn) throw new Error("不支持的视频厂商");
-  const owned = modelList.find((m) => m.model === model);
-  if (!owned) throw new Error("不支持的模型");
+  if (!manufacturerFn) throw new Error("不支持的视频厂商");
+  // "other" 厂商跳过 modelList 校验，允许任意模型名透传
+  if (manufacturer !== "other") {
+    const owned = modelList.find((m) => m.model === model);
+    if (!owned) throw new Error("不支持的模型");
+  }
 
   // 补充图片的 base64 内容类型字符串
   if (input.imageBase64 && input.imageBase64.length > 0) {
@@ -60,6 +63,10 @@ export default async (input: VideoConfig, config?: AIConfig) => {
   if (videoUrl) {
     const response = await axios.get(videoUrl, { responseType: "stream" });
     await u.oss.writeFile(input.savePath, response.data);
+    return input.savePath;
+  }
+  // other 厂商在自身内部完成下载并返回 null，此时文件已写入 savePath
+  if (manufacturer === "other" && videoUrl === null) {
     return input.savePath;
   }
   return videoUrl;

@@ -10,6 +10,7 @@ Toonflow 是一个 AI 驱动的短视频/漫画制作平台，核心流程：
 - **数据库**: SQLite3 (better-sqlite3 + Knex.js)
 - **AI 集成**: Vercel AI SDK (@ai-sdk/*)
 - **部署**: Docker + Nginx
+- **项目性质**: 当前为单用户项目（userId 全部硬编码为 1，无注册功能，密码明文存储）
 
 ---
 
@@ -92,7 +93,7 @@ if (manufacturer == "other") {
 |---------|---------|------|
 | 文本生成 | `src/utils/ai/text/index.ts` | `createOpenAI` + 自定义 baseURL |
 | 图片生成 | `src/utils/ai/image/owned/other.ts` | `@ai-sdk/openai-compatible` |
-| 视频生成 | `src/utils/ai/video/owned/other.ts` | axios + 双 URL（请求URL|查询URL） |
+| 视频生成 | `src/utils/ai/video/owned/other.ts` | axios + new-api `/v1/videos` 接口 |
 
 ### 2.6 测试接口
 
@@ -102,28 +103,135 @@ if (manufacturer == "other") {
 
 ---
 
-## 3. Git 仓库管理（Fork 项目）
+## 3. new-api 视频接口对接（重要）
 
-### 3.1 修改 origin 到 fork 仓库
+### 3.1 正确的接口端点
+
+new-api 视频接口是 `/v1/videos`（不是 `/v1/video/generations`）：
+
+| 操作 | 端点 | 方法 |
+|------|------|------|
+| 提交任务 | `/v1/videos` | POST |
+| 查询状态 | `/v1/videos/{task_id}` | GET |
+| 下载视频 | `/v1/videos/{task_id}/content` | GET |
+
+### 3.2 状态值
+
+| 状态 | 含义 |
+|------|------|
+| `pending` | 等待中 |
+| `processing` | 处理中 |
+| `completed` | 已完成 |
+| `failed` | 失败 |
+
+### 3.3 请求体格式
+
+```json
+POST /v1/videos
+{
+  "model": "veo-3.0-generate-001",
+  "prompt": "视频描述文本",
+  "duration": 4,
+  "image": "首帧图片URL或Base64（可选）",
+  "metadata": {
+    "durationSeconds": 4,
+    "aspectRatio": "16:9",
+    "personGeneration": "allow_all",
+    "image_tail": "尾帧图片URL或Base64（Kling 首尾帧模式）"
+  }
+}
+```
+
+### 3.4 各模型视频时长控制方式
+
+- **Gemini Veo**: 通过 `metadata.durationSeconds` 传入（支持 4、6、8 秒）
+- **Kling**: 通过顶层 `duration` 字段传入
+- **通用**: 同时传 `duration` 和 `metadata.durationSeconds` 确保兼容
+
+### 3.5 首尾帧/图生视频传参
+
+- **首帧**: `image` 字段（顶层）
+- **尾帧**: `metadata.image_tail`（通过 metadata 传入）
+- 只传 `image` = 单图模式（图生视频）
+- 两个都传 = 首尾帧模式
+- **注意**: Gemini Veo 在 new-api 当前实现中不支持图片输入（adaptor 未实现），Kling 支持
+
+### 3.6 视频下载需要认证
+
+`/v1/videos/{task_id}/content` 返回二进制流，**需要带 Authorization header**。
+因此 `other.ts` 内部自行完成下载写文件，返回 null 让 `index.ts` 跳过重复下载。
+
+### 3.7 video/index.ts 中 "other" 的特殊处理
+
+```typescript
+// other 厂商跳过 modelList 校验，允许任意模型名透传
+if (manufacturer !== "other") {
+  const owned = modelList.find((m) => m.model === model);
+  if (!owned) throw new Error("不支持的模型");
+}
+
+// other 厂商内部已完成下载，直接返回 savePath
+if (manufacturer === "other" && videoUrl === null) {
+  return input.savePath;
+}
+```
+
+### 3.8 "contents is required" 错误排查
+
+如果 new-api 返回 `contents is required`：
+- 错误来源：`relay/helper/valid_request.go:314` 的 `GetAndValidateGeminiRequest`
+- 原因：请求被路由到了 Gemini chat handler 而不是 video task handler
+- 排查：确认 new-api 渠道中模型名（如 `veo-3.1-generate-preview`）已添加到 Gemini 渠道的模型列表中
+- 验证：用 curl 直接测试 `POST /v1/videos` 确认是 new-api 端问题还是 Toonflow 问题
+
+---
+
+## 4. 静态文件访问 "未提供token" 错误
+
+### 4.1 问题根因
+
+OSS 写文件目录（`data/uploads/`）与 Express 静态文件目录（`uploads/`）不一致：
+- `src/utils/oss.ts:35` — 文件保存到 `data/uploads/`
+- `src/app.ts:33` — 静态文件从 `uploads/` 查找
+
+文件找不到 → 请求穿透到 JWT 中间件 → 报"未提供 token"
+
+### 4.2 修复
+
+修改 `src/app.ts` 中非 Electron 模式的 rootDir：
+
+```typescript
+// 修改前
+rootDir = path.join(process.cwd(), "uploads");
+
+// 修改后
+rootDir = path.join(process.cwd(), "data", "uploads");
+```
+
+---
+
+## 5. Git 仓库管理（Fork 项目）
+
+### 5.1 修改 origin 到 fork 仓库
 
 ```bash
 git remote set-url origin git@github.com:ming200825/Toonflow-app.git
 ```
 
-### 3.2 添加上游仓库（同步原仓库更新）
+### 5.2 添加上游仓库（同步原仓库更新）
 
 ```bash
 git remote add upstream https://github.com/HBAI-Ltd/Toonflow-app.git
 ```
 
-### 3.3 同步上游更新
+### 5.3 同步上游更新
 
 ```bash
 git fetch upstream
 git merge upstream/master
 ```
 
-### 3.4 最终 remote 配置
+### 5.4 最终 remote 配置
 
 ```
 origin    git@github.com:ming200825/Toonflow-app.git   (push 自己的 fork)
@@ -132,27 +240,56 @@ upstream  https://github.com/HBAI-Ltd/Toonflow-app.git (fetch 原仓库)
 
 ---
 
-## 4. Docker 部署
+## 6. Docker 部署
 
-### 4.1 代码修改后重新部署
+### 6.1 Dockerfile heredoc 问题
 
-Dockerfile 从 Git 仓库拉取源码编译，不需要修改 Dockerfile，只需：
+**问题**：Dockerfile 中 `RUN cat > file <<'EOF'` 写配置文件，在 Windows 环境构建时 heredoc 可能带入 `\r` 换行符，导致 supervisord 报 `Error: .ini file does not include supervisord section`。
+
+**修复**：将配置文件独立为 `docker/supervisord.conf` 和 `docker/nginx.conf`，用 `COPY` 替代 heredoc。
+
+### 6.2 代码修改后重新部署
+
+当前 docker-compose 通过 volume 挂载 `build/` 目录，不需要重建镜像：
 
 ```bash
-git push                              # 推送代码到仓库
-yarn docker:build && yarn docker:up   # 重新构建并启动
+# 本地编译（跳过 Electron 下载）
+set ELECTRON_SKIP_BINARY_DOWNLOAD=1 && yarn build
+
+# 服务器上重启容器
+docker-compose restart toonflow
 ```
 
-### 4.2 Docker 架构
+如果需要完整重建：
+```bash
+git push
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
 
-- 容器内 nginx (80端口) — 服务前端静态文件
+### 6.3 docker-compose.yml volume 挂载
+
+```yaml
+volumes:
+  - ../logs:/var/log
+  - ../data:/app/data          # 数据库 + uploads
+  - ../env:/app/env            # 环境变量
+  - ../build:/app/build        # 编译产物（方便热更新）
+  - ../scripts/web:/usr/share/nginx/html  # 前端静态文件
+```
+
+### 6.4 Docker 架构
+
+- 容器内 nginx (80端口, 映射到 8011) — 服务前端静态文件
 - 容器内 Node.js (60000端口) — 后端 API + WebSocket
+- 容器内 supervisor — 管理 nginx 和 pm2 进程
 
 ---
 
-## 5. Nginx 反向代理配置（容器外）
+## 7. Nginx 反向代理配置（容器外）
 
-### 5.1 关键问题
+### 7.1 关键问题
 
 Toonflow 后端 60000 端口同时承载 **HTTP** 和 **WebSocket** 两种协议：
 - HTTP: Express.js REST API
@@ -161,13 +298,13 @@ Toonflow 后端 60000 端口同时承载 **HTTP** 和 **WebSocket** 两种协议
 前端配置 `baseURL: "https://toon.vipcode.cc/api"`，HTTP 请求带 `/api` 前缀，
 但 **WebSocket 连接路径不带 `/api` 前缀**（如 `wss://toon.vipcode.cc/outline/agentsOutline`）。
 
-### 5.2 WebSocket 端点清单
+### 7.2 WebSocket 端点清单
 
 项目中有 2 个 WebSocket 路由：
 - `/outline/agentsOutline` — 大纲智能体对话
 - `/storyboard/chatStoryboard` — 分镜智能体对话
 
-### 5.3 完整 Nginx 配置（前端在容器外）
+### 7.3 完整 Nginx 配置（前端在容器外）
 
 ```nginx
 server {
@@ -249,7 +386,7 @@ server {
 }
 ```
 
-### 5.4 Nginx WebSocket 代理核心三行
+### 7.4 Nginx WebSocket 代理核心三行
 
 ```nginx
 proxy_http_version 1.1;
@@ -257,32 +394,89 @@ proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";
 ```
 
-这三行让 nginx 支持 HTTP → WebSocket 的 Upgrade 握手。
+### 7.5 proxy_pass 尾部斜杠区别
 
-### 5.5 proxy_pass 尾部斜杠区别
-
-- `proxy_pass http://127.0.0.1:60000/;` — 有尾部 `/`，nginx 会去掉 location 匹配的前缀再转发（`/api/foo` → `/foo`）
-- `proxy_pass http://127.0.0.1:60000;` — 无尾部 `/`，保留完整路径原样转发（`/outline/agentsOutline` → `/outline/agentsOutline`）
+- `proxy_pass http://127.0.0.1:60000/;` — 有尾部 `/`，去掉 location 前缀再转发（`/api/foo` → `/foo`）
+- `proxy_pass http://127.0.0.1:60000;` — 无尾部 `/`，保留完整路径原样转发
 
 ---
 
-## 6. 项目架构要点速查
+## 8. 项目架构要点速查
 
-### 6.1 文件路由系统
+### 8.1 文件路由系统
 
 路由文件自动发现：`src/routes/**/*.ts` → URL 路径
 例如：`routes/novel/addNovel.ts` → `POST /novel/addNovel`
 
-### 6.2 AI 模型配置存储
+### 8.2 AI 模型配置存储
 
 数据库表 `t_config`，字段：type, model, apiKey, baseUrl, manufacturer
 
-### 6.3 认证机制
+### 8.3 认证机制
 
 JWT Token，从 `Authorization` header 或 `?token=` query 参数获取
 白名单路径：`/other/login`
+默认账号：admin / admin123
 
-### 6.4 数据库
+### 8.4 数据库
 
 SQLite3，17 张表，使用 Knex.js 查询构建器
 类型定义自动生成：`src/types/database.d.ts`
+数据库文件位置：`data/` 目录下
+
+### 8.5 OSSURL 环境变量
+
+`env/.env.prod` 中的 `OSSURL` 用于生成文件的访问 URL。
+部署时需确保 OSSURL 与实际可访问的地址一致（如 `https://toon.vipcode.cc/api/`）。
+
+---
+
+## 9. 本次代码修改清单
+
+| 文件 | 修改内容 |
+|------|---------|
+| `src/utils/ai/text/modelList.ts` | `"other"` 的 responseFormat 从 `"schema"` 改为 `"object"` |
+| `src/app.ts` | 静态文件目录从 `uploads/` 改为 `data/uploads/`（与 OSS 一致） |
+| `src/utils/ai/video/index.ts` | other 厂商跳过 modelList 校验；other 内部下载后返回 savePath |
+| `src/utils/ai/video/owned/other.ts` | 完全重写，适配 new-api `/v1/videos` 接口格式 |
+| `docker/Dockerfile` | heredoc 改为 COPY 独立配置文件 |
+| `docker/supervisord.conf` | 新增独立 supervisord 配置文件 |
+| `docker/nginx.conf` | 新增独立 nginx 站点配置文件 |
+
+---
+
+## 10. new-api 项目备忘（e:\P\Go\new-api）
+
+### 10.1 概述
+
+new-api 是基于 Go + Gin 的 AI 模型网关，对外暴露 OpenAI 兼容接口，支持 30+ 上游提供商。
+
+### 10.2 Gemini Veo 视频 adaptor
+
+- 位置：`relay/channel/task/gemini/adaptor.go`
+- 支持模型：`veo-3.0-generate-001`、`veo-3.1-generate-preview`、`veo-3.1-fast-generate-preview`
+- 请求格式：`predictLongRunning` 接口，发送 `instances` + `parameters`
+- **当前限制**：`GeminiVideoRequest` 只有 `Prompt` 字段，不支持图片输入（首尾帧）
+- **待改进**：Gemini Veo 官方 API 支持 `referenceImages` 传图片，但 new-api 的 adaptor 未实现
+
+### 10.3 Kling 视频 adaptor
+
+- 位置：`relay/channel/task/kling/adaptor.go`
+- 首帧：`image` 字段
+- 尾帧：`metadata.image_tail`
+- 时长：`duration` 字段（秒数字符串）
+
+### 10.4 视频请求数据流
+
+```
+客户端 POST /v1/videos
+  → middleware.TokenAuth()
+  → middleware.Distribute() (识别 RelayModeVideoSubmit)
+  → controller.RelayTask()
+  → relay.RelayTaskSubmit()
+  → 选择对应 adaptor (gemini/kling/...)
+  → adaptor.BuildRequestBody() (转换为上游格式)
+  → 上游 API
+  → adaptor.DoResponse() (解析响应)
+  → 返回 task_id
+```

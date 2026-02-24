@@ -22,6 +22,15 @@ interface Owned {
 
 const modelList: Owned[] = [
   // ================== 火山引擎/豆包系列 ==================
+    // doubao-seedance-2-0 文生视频/图生视频
+  {
+    manufacturer: "volcengine",
+    model: "doubao-seedance-2-0-260128",
+    durationResolutionMap: [{ duration: [4, 5, 6, 7, 8, 9, 10, 11, 12], resolution: ["480p", "720p", "1080p"] }],
+    aspectRatio: ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9"],
+    type: ["text", "endFrameOptional"],
+    audio: true,
+  },
   // doubao-seedance-1-5-pro 文生视频/图生视频
   {
     manufacturer: "volcengine",
