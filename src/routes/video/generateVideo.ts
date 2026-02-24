@@ -75,20 +75,11 @@ export default router.post(
       }
     }
 
-    // 提取路径名的辅助函数
-    const getPathname = (url: string): string => {
-      // 如果是完整 URL，提取 pathname
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        return new URL(url).pathname;
-      }
-      // 否则认为已经是路径
-      return url;
-    };
     if (fileUrl.length) {
       // 校验文件是否存在
       const fileExistsResults = await Promise.all(
         fileUrl.map(async (url: string) => {
-          const path = getPathname(url);
+          const path = u.oss.stripUrl(url);
           return u.oss.fileExists(path);
         }),
       );
@@ -98,8 +89,8 @@ export default router.post(
       }
     }
 
-    const firstFrame = fileUrl.length ? getPathname(fileUrl[0]) : "";
-    const storyboardImgs = fileUrl.map((path: string) => getPathname(path));
+    const firstFrame = fileUrl.length ? u.oss.stripUrl(fileUrl[0]) : "";
+    const storyboardImgs = fileUrl.map((path: string) => u.oss.stripUrl(path));
     const savePath = `/${projectId}/video/${uuidv4()}.mp4`;
 
     // 先插入记录，state 默认为 0
@@ -138,21 +129,9 @@ async function generateVideoAsync(
   try {
     const projectData = await u.db("t_project").where("id", projectId).select("artStyle", "videoRatio").first();
 
-    // 提取路径名的辅助函数
-    const getPathname = (url: string): string => {
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        return new URL(url).pathname;
-      }
-      return url;
-    };
-
     const imageBase64 = await Promise.all(
       fileUrl.map((path: string) => {
-        if (path.startsWith("http://") || path.startsWith("https://")) {
-          return u.oss.getImageBase64(getPathname(path));
-        }
-        // 如果是相对路径，直接获取
-        return u.oss.getImageBase64(path);
+        return u.oss.getImageBase64(u.oss.stripUrl(path));
       }),
     );
 
@@ -246,9 +225,8 @@ async function sharpProcessingImage(imageList: string[], projectId: number): Pro
         const base64Data = imagePath.replace(/^data:image\/\w+;base64,/, "");
         imageBuffer = Buffer.from(base64Data, "base64");
       } else if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-        // URL格式，提取pathname后从OSS读取
-        const pathname = new URL(imagePath).pathname;
-        imageBuffer = await u.oss.getFile(pathname);
+        // URL格式，提取相对路径后从OSS读取
+        imageBuffer = await u.oss.getFile(u.oss.stripUrl(imagePath));
       } else {
         // 文件路径，直接从OSS读取
         imageBuffer = await u.oss.getFile(imagePath);

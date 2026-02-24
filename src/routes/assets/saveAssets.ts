@@ -39,16 +39,7 @@ export default router.post(
       imageUrl = savePath; // 新图片路径
     } else if (filePath) {
       // 前端传入已存在图片路径，去掉 OSSURL 前缀只保留相对路径
-      try {
-        const ossUrl = process.env.OSSURL || "http://127.0.0.1:60000/";
-        if (filePath.startsWith(ossUrl)) {
-          savePath = "/" + filePath.slice(ossUrl.length);
-        } else {
-          savePath = new URL(filePath).pathname;
-        }
-      } catch {
-        savePath = filePath;
-      }
+      savePath = u.oss.stripUrl(filePath);
 
       // 检查图片表里是否有这条图片
       // const selectedImage = await u.db("t_image").where("filePath", savePath).first();

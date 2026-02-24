@@ -17,7 +17,7 @@ if (typeof process.versions?.electron !== "undefined") {
   const userDataDir: string = app.getPath("userData");
   dbPath = path.join(userDataDir, "db.sqlite");
 } else {
-  dbPath = path.join(process.cwd(), "db.sqlite");
+  dbPath = path.join(process.cwd(), "data", "db.sqlite");
 }
 console.log("数据库目录:", dbPath);
 const dbDir = path.dirname(dbPath);

@@ -23,7 +23,7 @@ export default router.post(
     let savePath: string;
 
     try {
-      savePath = new URL(filePath).pathname;
+      savePath = u.oss.stripUrl(filePath);
     } catch {
       savePath = filePath;
     }
@@ -34,13 +34,7 @@ export default router.post(
     let firstFramePath: string | undefined;
 
     if (storyboardImgs && storyboardImgs.length > 0) {
-      trimmedImgs = storyboardImgs.map((img: string) => {
-        try {
-          return new URL(img).pathname;
-        } catch {
-          return img;
-        }
-      });
+      trimmedImgs = storyboardImgs.map((img: string) => u.oss.stripUrl(img));
       firstFramePath = trimmedImgs[0];
     }
 

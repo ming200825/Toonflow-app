@@ -32,7 +32,7 @@ class OSS {
       const userDataDir: string = app.getPath("userData");
       this.rootDir = path.join(userDataDir, "uploads");
     } else {
-      this.rootDir = path.join(process.cwd(), "uploads");
+      this.rootDir = path.join(process.cwd(), "data", "uploads");
     }
     // 初始化时自动创建根目录
     this.initPromise = fs.mkdir(this.rootDir, { recursive: true }).then(() => {});
@@ -44,6 +44,25 @@ class OSS {
    */
   private async ensureInit() {
     await this.initPromise;
+  }
+
+  /**
+   * 从完整 URL 中提取相对于 OSSURL 的路径。
+   * 例如：https://toon.vip-ai.cn/api/1/props/xxx.jpg → /1/props/xxx.jpg
+   * @param url 完整 URL 或相对路径
+   * @returns 去掉 OSSURL 前缀的相对路径
+   */
+  stripUrl(url: string): string {
+    const ossUrl = process.env.OSSURL || "http://127.0.0.1:60000/";
+    if (url.startsWith(ossUrl)) {
+      return "/" + url.slice(ossUrl.length);
+    }
+    try {
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return new URL(url).pathname;
+      }
+    } catch {}
+    return url;
   }
 
   /**

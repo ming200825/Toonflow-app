@@ -30,7 +30,7 @@ export default router.post(
     const list = results.map((item: any) => {
       return {
         ...item,
-        filePath: new URL(item.filePath).pathname,
+        filePath: u.oss.stripUrl(item.filePath),
       };
     });
     // 按 base64Data 原始顺序过滤、插库

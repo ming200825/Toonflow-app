@@ -28,8 +28,8 @@ export default router.post(
       model = "sora-2";
     }
 
-    let firstFrame = new URL(filePath[0]).pathname;
-    let storyboardImgs = filePath.map((path: string) => new URL(path).pathname);
+    let firstFrame = u.oss.stripUrl(filePath[0]);
+    let storyboardImgs = filePath.map((path: string) => u.oss.stripUrl(path));
 
     await u.db("t_video").insert({
       time: duration,

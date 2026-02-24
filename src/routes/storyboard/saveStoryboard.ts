@@ -15,7 +15,7 @@ export default router.post(
   }),
   async (req, res) => {
     const { filePath, id, prompt } = req.body;
-    const savePath = new URL(filePath).pathname;
+    const savePath = u.oss.stripUrl(filePath);
 
     let imageUrl = "";
 
