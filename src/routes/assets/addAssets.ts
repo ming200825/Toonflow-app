@@ -1,8 +1,9 @@
 import express from "express";
 import u from "@/utils";
 import { z } from "zod";
-import { success } from "@/lib/responseFormat";
+import { success, error } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 新增资产
@@ -20,6 +21,10 @@ export default router.post(
   }),
   async (req, res) => {
     const { projectId, name, intro, type, prompt, remark, episode, scriptId } = req.body;
+    const userId = (req as any).user.id;
+
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     await u.db("t_assets").insert({
       projectId,

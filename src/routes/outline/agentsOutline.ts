@@ -2,6 +2,7 @@ import express from "express";
 import expressWs, { Application } from "express-ws";
 import u from "@/utils";
 import OutlineScript from "@/agents/outlineScript";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 expressWs(router as unknown as Application);
 
@@ -14,6 +15,16 @@ router.ws("/", async (ws, req) => {
     ws.send(JSON.stringify({ type: "error", data: "项目ID缺失" }));
     ws.close(500, "项目ID缺失");
     return;
+  }
+
+  const userId = (req as any).user?.id;
+  if (userId) {
+    const isOwner = await verifyProjectOwnership(Number(projectId), userId);
+    if (!isOwner) {
+      ws.send(JSON.stringify({ type: "error", data: "无权操作此项目" }));
+      ws.close(4003, "无权操作此项目");
+      return;
+    }
   }
 
   agent = new OutlineScript(Number(projectId));

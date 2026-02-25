@@ -1,9 +1,10 @@
 import express from "express";
-import { success } from "@/lib/responseFormat";
+import { error, success } from "@/lib/responseFormat";
 import generateImageTool from "@/agents/storyboard/generateImageTool";
 import { validateFields } from "@/middleware/middleware";
 import { z } from "zod";
 import fs from "fs";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 生成分镜图
@@ -21,6 +22,9 @@ export default router.post(
   async (req, res) => {
     try {
       const { cells, scriptId, projectId } = req.body;
+      const userId = (req as any).user.id;
+      const isOwner = await verifyProjectOwnership(projectId, userId);
+      if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
       const buffer = await generateImageTool(cells, scriptId, projectId);
 

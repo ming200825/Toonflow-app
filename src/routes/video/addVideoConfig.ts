@@ -3,6 +3,7 @@ import u from "@/utils";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
 import { z } from "zod";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 图片项schema
@@ -40,6 +41,9 @@ export default router.post(
   }),
   async (req, res) => {
     const { scriptId, projectId, configId, mode, startFrame, endFrame, images, resolution, duration, prompt, audioEnabled } = req.body;
+    const userId = (req as any).user.id;
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     // 生成新ID
     const maxIdResult: any = await u.db("t_videoConfig").max("id as maxId").first();

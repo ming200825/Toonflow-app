@@ -19,6 +19,7 @@ export interface t_aiModelMap {
   'id'?: number;
   'key'?: string | null;
   'name'?: string | null;
+  'userId'?: number | null;
 }
 export interface t_assets {
   'duration'?: string | null;
@@ -99,6 +100,7 @@ export interface t_prompts {
   'name'?: string | null;
   'parentCode'?: string | null;
   'type'?: string | null;
+  'userId'?: number | null;
 }
 export interface t_script {
   'content'?: string | null;
@@ -135,10 +137,12 @@ export interface t_user {
   'id'?: number;
   'name'?: string | null;
   'password'?: string | null;
+  'role'?: string | null;
 }
 export interface t_video {
   'aiConfigId'?: number | null;
   'configId'?: number | null;
+  'errorReason'?: string | null;
   'filePath'?: string | null;
   'firstFrame'?: string | null;
   'id'?: number;
@@ -151,6 +155,7 @@ export interface t_video {
   'time'?: number | null;
 }
 export interface t_videoConfig {
+  'aiConfigId'?: number | null;
   'audioEnabled'?: number | null;
   'createTime'?: number | null;
   'duration'?: number | null;

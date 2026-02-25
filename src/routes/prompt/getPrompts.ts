@@ -8,6 +8,7 @@ const router = express.Router();
 
 // 获取提示词
 export default router.get("/", async (req, res) => {
-  const data = await u.db("t_prompts");
+  const userId = (req as any).user.id;
+  const data = await u.db("t_prompts").where("userId", userId);
   res.status(200).send(success(data));
 });

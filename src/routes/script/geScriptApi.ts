@@ -1,6 +1,7 @@
 import express from "express";
 import u from "@/utils";
-import { success } from "@/lib/responseFormat";
+import { success, error } from "@/lib/responseFormat";
+import { verifyProjectOwnership } from "@/utils/auth";
 import { z } from "zod";
 import { validateFields } from "@/middleware/middleware";
 const router = express.Router();
@@ -27,6 +28,10 @@ export default router.post(
   }),
   async (req, res) => {
     const { projectId } = req.body;
+    const userId = (req as any).user.id;
+
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     //查询剧本和大纲数据
     const rows: ScriptRow[] = await u

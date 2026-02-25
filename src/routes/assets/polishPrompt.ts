@@ -3,6 +3,7 @@ import u from "@/utils";
 import * as zod from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 interface OutlineItem {
   description: string;
@@ -54,6 +55,10 @@ export default router.post(
   }),
   async (req, res) => {
     const { assetsId, projectId, type, name, describe } = req.body;
+    const userId = (req as any).user.id;
+
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     //获取风格
     const project = await u.db("t_project").where("id", projectId).select("artStyle", "type", "intro").first();

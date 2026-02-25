@@ -295,8 +295,8 @@ Toonflow 后端 60000 端口同时承载 **HTTP** 和 **WebSocket** 两种协议
 - HTTP: Express.js REST API
 - WebSocket: 通过 `express-ws` 挂载，使用 HTTP Upgrade 机制
 
-前端配置 `baseURL: "https://toon.vipcode.cc/api"`，HTTP 请求带 `/api` 前缀，
-但 **WebSocket 连接路径不带 `/api` 前缀**（如 `wss://toon.vipcode.cc/outline/agentsOutline`）。
+前端配置 `baseURL: "https://toon.vip-ai.cn/api"`，HTTP 请求带 `/api` 前缀，
+但 **WebSocket 连接路径不带 `/api` 前缀**（如 `wss://toon.vip-ai.cn/outline/agentsOutline`）。
 
 ### 7.2 WebSocket 端点清单
 
@@ -310,7 +310,7 @@ Toonflow 后端 60000 端口同时承载 **HTTP** 和 **WebSocket** 两种协议
 server {
     listen 80;
     # listen 443 ssl;
-    server_name toon.vipcode.cc;
+    server_name toon.vip-ai.cn;
     root /var/opt/Toonflow-app/dist;
     index index.html index.htm;
 
@@ -381,8 +381,8 @@ server {
         return 404;
     }
 
-    access_log /var/log/nginx/toon.vipcode.cc.log;
-    error_log /var/log/nginx/toon.vipcode.cc.error.log;
+    access_log /var/log/nginx/toon.vip-ai.cn.log;
+    error_log /var/log/nginx/toon.vip-ai.cn.error.log;
 }
 ```
 
@@ -427,7 +427,7 @@ SQLite3，17 张表，使用 Knex.js 查询构建器
 ### 8.5 OSSURL 环境变量
 
 `env/.env.prod` 中的 `OSSURL` 用于生成文件的访问 URL。
-部署时需确保 OSSURL 与实际可访问的地址一致（如 `https://toon.vipcode.cc/api/`）。
+部署时需确保 OSSURL 与实际可访问的地址一致（如 `https://toon.vip-ai.cn/api/`）。
 
 ---
 

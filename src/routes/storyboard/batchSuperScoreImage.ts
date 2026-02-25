@@ -5,6 +5,7 @@ import { validateFields } from "@/middleware/middleware";
 import { z } from "zod";
 import { v4 } from "uuid";
 import axios from "axios";
+import { verifyProjectOwnership } from "@/utils/auth";
 
 const router = express.Router();
 
@@ -57,6 +58,10 @@ export default router.post(
   }),
   async (req, res) => {
     const { projectId, scriptId, imageList } = req.body;
+    const userId = (req as any).user.id;
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
+
     const scriptData = await u.db("t_script").where("id", scriptId).select("content").first();
     if (!scriptData) return res.status(500).send(error("剧本不存在"));
     const projectData = await u.db("t_project").where({ id: +projectId }).select("artStyle", "videoRatio").first();

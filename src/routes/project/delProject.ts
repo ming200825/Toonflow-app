@@ -1,8 +1,9 @@
 import express from "express";
 import u from "@/utils";
 import { z } from "zod";
-import { success } from "@/lib/responseFormat";
+import { success, error } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 删除项目
@@ -13,6 +14,11 @@ export default router.post(
   }),
   async (req, res) => {
     const { id } = req.body;
+    const userId = (req as any).user.id;
+
+    // 验证项目归属
+    const isOwner = await verifyProjectOwnership(id, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     const scriptData = await u.db("t_script").where("projectId", id).select("id");
     const scriptIds = scriptData.map((item: any) => item.id);

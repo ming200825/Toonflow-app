@@ -8,6 +8,7 @@ import { t_config } from "@/types/database";
 import sharp from "sharp";
 import fs from "fs";
 import path from "path";
+import { verifyProjectOwnership } from "@/utils/auth";
 
 const router = express.Router();
 
@@ -29,6 +30,9 @@ export default router.post(
   }),
   async (req, res) => {
     const { type, mode, scriptId, projectId, configId, aiConfigId, resolution, filePath, duration, prompt, audioEnabled } = req.body;
+    const userId = (req as any).user.id;
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     if (mode == "text") filePath.length = 0;
     else if (!filePath.length) {

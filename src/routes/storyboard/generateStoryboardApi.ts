@@ -1,8 +1,9 @@
 import express from "express";
 import u from "@/utils";
-import { success } from "@/lib/responseFormat";
+import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
 import { z } from "zod";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 生成分镜图
@@ -16,6 +17,9 @@ export default router.post(
   }),
   async (req, res) => {
     const { filePath, prompt, projectId, assetsId } = req.body;
+    const userId = (req as any).user.id;
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     let data = await u.editImage(filePath, prompt, projectId);
     const returnData: {

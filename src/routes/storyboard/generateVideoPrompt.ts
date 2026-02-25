@@ -4,6 +4,7 @@ import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
 import { z } from "zod";
 import axios from "axios";
+import { verifyProjectOwnership } from "@/utils/auth";
 
 const router = express.Router();
 
@@ -175,6 +176,9 @@ export default router.post(
   }),
   async (req, res) => {
     const { projectId, scriptId, id, prompt: imagePrompt, src } = req.body;
+    const userId = (req as any).user.id;
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     try {
       const scriptData = await u.db("t_script").where("id", scriptId).select("content").first();

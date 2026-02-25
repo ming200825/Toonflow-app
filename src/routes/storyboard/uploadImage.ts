@@ -1,9 +1,10 @@
 import express from "express";
 import u from "@/utils";
-import { success } from "@/lib/responseFormat";
+import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
 import { z } from "zod";
 import { v4 as uuid } from "uuid";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 上传对话图片
@@ -15,6 +16,10 @@ export default router.post(
   }),
   async (req, res) => {
     const { base64Data, projectId } = req.body;
+    const userId = (req as any).user.id;
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
+
     const savePath = `/${projectId}/chat/${uuid()}.jpg`;
     await u.oss.writeFile(savePath, Buffer.from(base64Data.match(/base64,([A-Za-z0-9+/=]+)/)[1] ?? "", "base64"));
     const url = await u.oss.getFileUrl(savePath);

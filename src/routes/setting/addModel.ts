@@ -26,7 +26,7 @@ export default router.post(
       manufacturer,
       modelType,
       createTime: Date.now(),
-      userId: 1,
+      userId: (req as any).user.id,
     });
     res.status(200).send(success("新增成功"));
   },

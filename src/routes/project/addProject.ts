@@ -24,7 +24,7 @@ export default router.post(
       type,
       artStyle,
       videoRatio,
-      userId: 1,
+      userId: (req as any).user.id,
       createTime: Date.now(),
     });
 

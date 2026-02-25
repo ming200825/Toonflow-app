@@ -31,6 +31,16 @@ export default async (knex: Knex): Promise<void> => {
   await addColumn("t_videoConfig", "audioEnabled", "integer");
   await addColumn("t_video", "errorReason", "text");
 
+  // 多用户改造：添加新字段
+  await addColumn("t_user", "role", "text");
+  await addColumn("t_aiModelMap", "userId", "integer");
+  await addColumn("t_prompts", "userId", "integer");
+
+  // 多用户改造：补充已有数据的默认值
+  await knex("t_user").whereNull("role").update({ role: "admin" });
+  await knex("t_aiModelMap").whereNull("userId").update({ userId: 1 });
+  await knex("t_prompts").whereNull("userId").update({ userId: 1 });
+
   //更正字段
   await alterColumnType("t_config", "modelType", "text");
 

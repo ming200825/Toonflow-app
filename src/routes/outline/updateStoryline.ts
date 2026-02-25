@@ -1,8 +1,9 @@
 import express from "express";
 import u from "@/utils";
 import { z } from "zod";
-import { success } from "@/lib/responseFormat";
+import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { verifyProjectOwnership } from "@/utils/auth";
 const router = express.Router();
 
 // 更新故事线
@@ -14,6 +15,10 @@ export default router.post(
   }),
   async (req, res) => {
     const { projectId, content } = req.body;
+    const userId = (req as any).user.id;
+
+    const isOwner = await verifyProjectOwnership(projectId, userId);
+    if (!isOwner) return res.status(403).send(error("无权操作此项目"));
 
     const existing = await u.db("t_storyline").where({ projectId }).first();
     if (existing) {

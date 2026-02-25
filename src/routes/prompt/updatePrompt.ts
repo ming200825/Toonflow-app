@@ -16,12 +16,15 @@ export default router.post(
   async (req, res) => {
     const { id, customValue, code } = req.body;
 
+    const userId = (req as any).user.id;
+
     await u
       .db("t_prompts")
       .update({
         customValue: customValue,
       })
-      .where("id", id);
+      .where("id", id)
+      .andWhere("userId", userId);
 
     res.status(200).send(success({ message: "更新提示词成功" }));
   },

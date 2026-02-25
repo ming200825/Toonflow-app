@@ -5,6 +5,9 @@ const router = express.Router();
 
 // 删除数据库表数据
 export default router.post("/", async (req, res) => {
+  const isAdmin = (req as any).user.role === "admin";
+  if (!isAdmin) return res.status(403).send({ message: "权限不足，仅管理员可执行此操作" });
+
   const projects = await u.db("t_project").select("id");
 
   const projectIds = projects.map((project) => project.id);

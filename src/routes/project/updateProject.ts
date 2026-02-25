@@ -17,8 +17,9 @@ export default router.post(
   }),
   async (req, res) => {
     const { id, intro, type, artStyle, videoRatio } = req.body;
+    const userId = (req as any).user.id;
 
-    await u.db("t_project").where("id", id).update({
+    await u.db("t_project").where("id", id).andWhere("userId", userId).update({
       intro,
       type,
       artStyle,
