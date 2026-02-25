@@ -30,7 +30,9 @@
       "Bash(yarn add canvas)",
       "Bash(node -e \"try { require\\(''canvas''\\); console.log\\(''ok''\\); } catch\\(e\\) { console.log\\(''no''\\); }\")",
       "Bash(node -e \"try { require\\(''canvas''\\); console.log\\(''ok''\\); } catch\\(e\\) { console.log\\(''failed:'', e.message.substring\\(0,100\\)\\); }\")",
-      "Bash(xargs grep -l \"persist\")"
+      "Bash(xargs grep -l \"persist\")",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
